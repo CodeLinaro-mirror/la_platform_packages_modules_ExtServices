@@ -21,20 +21,20 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := ExtServices
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_CERTIFICATE := platform
-
-LOCAL_AAPT_FLAGS := --shared-lib
-
-LOCAL_EXPORT_PACKAGE_RESOURCES := true
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.proguard
 
 LOCAL_PRIVILEGED_MODULE := true
 
+LOCAL_MIN_SDK_VERSION := 28
+
 include $(BUILD_PACKAGE)
 
-
-
-
+# Use the following include to make our test apk.
+ifeq ($(strip $(LOCAL_PACKAGE_OVERRIDES)),)
+include $(call all-makefiles-under, $(LOCAL_PATH))
+endif
 
