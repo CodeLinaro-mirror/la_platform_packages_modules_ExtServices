@@ -25,7 +25,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.annotation.NonNull;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -34,7 +33,7 @@ import android.app.Person;
 import android.app.RemoteInput;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.os.Process;
@@ -45,6 +44,10 @@ import android.view.textclassifier.ConversationActions;
 import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextClassifierEvent;
+
+import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
@@ -67,9 +70,6 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
-
 @RunWith(AndroidJUnit4.class)
 public class SmartActionsHelperTest {
     private static final String RESULT_ID = "id";
@@ -83,7 +83,7 @@ public class SmartActionsHelperTest {
     private static final String MESSAGE = "Where are you?";
 
     @Mock
-    IPackageManager mIPackageManager;
+    PackageManager mPackageManager;
     @Mock
     private TextClassifier mTextClassifier;
     private StatusBarNotification mStatusBarNotification;
@@ -106,8 +106,7 @@ public class SmartActionsHelperTest {
                 .thenReturn(new ConversationActions(Arrays.asList(REPLY_ACTION), RESULT_ID));
 
         mNotificationBuilder = new Notification.Builder(mContext, "channel");
-        mSettings = AssistantSettings.createForTesting(
-                null, null, Process.myUserHandle().getIdentifier(), null);
+        mSettings = AssistantSettings.createForTesting(null, null, null);
         mSettings.mGenerateActions = true;
         mSettings.mGenerateReplies = true;
         mSmartActionsHelper = new SmartActionsHelper(mContext, mSettings);
@@ -315,6 +314,21 @@ public class SmartActionsHelperTest {
     }
 
     @Test
+    public void testSuggest_notificationKeyisAddedToRequest() {
+        Notification notification =
+                mNotificationBuilder
+                        .setContentText(MESSAGE)
+                        .setCategory(Notification.CATEGORY_MESSAGE)
+                        .build();
+        setStatusBarNotification(notification);
+
+        ConversationActions.Request request = runSuggestAndCaptureRequest();
+
+        Bundle bundle = request.getExtras();
+        assertThat(bundle.containsKey(SmartActionsHelper.NOTIFICATION_KEY)).isTrue();
+    }
+
+    @Test
     public void testOnSuggestedReplySent() {
         Notification notification = createMessageNotification();
         setStatusBarNotification(notification);
@@ -477,7 +491,7 @@ public class SmartActionsHelperTest {
         NotificationChannel channel =
                 new NotificationChannel("id", "name", NotificationManager.IMPORTANCE_DEFAULT);
         return new NotificationEntry(
-                mContext, mIPackageManager, mStatusBarNotification, channel, mSmsHelper);
+                mContext, mPackageManager, mStatusBarNotification, channel, mSmsHelper);
     }
 
     private Notification createMessageNotification() {

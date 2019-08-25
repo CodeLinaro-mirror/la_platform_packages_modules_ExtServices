@@ -21,20 +21,15 @@ import static android.app.NotificationManager.IMPORTANCE_MIN;
 import static android.service.notification.Adjustment.KEY_IMPORTANCE;
 import static android.service.notification.NotificationListenerService.Ranking.USER_SENTIMENT_NEGATIVE;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.SuppressLint;
-import android.app.ActivityThread;
 import android.app.INotificationManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.content.Context;
-import android.content.pm.IPackageManager;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.UserHandle;
-import android.os.storage.StorageManager;
 import android.service.notification.Adjustment;
 import android.service.notification.NotificationAssistantService;
 import android.service.notification.NotificationStats;
@@ -42,14 +37,14 @@ import android.service.notification.StatusBarNotification;
 import android.util.ArrayMap;
 import android.util.AtomicFile;
 import android.util.Log;
-import android.util.Slog;
 import android.util.Xml;
 
-import com.android.internal.annotations.VisibleForTesting;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
+
 import com.android.internal.util.FastXmlSerializer;
 import com.android.internal.util.XmlUtils;
-
-import libcore.io.IoUtils;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -99,7 +94,7 @@ public class Assistant extends NotificationAssistantService {
 
     private Ranking mFakeRanking = null;
     private AtomicFile mFile = null;
-    private IPackageManager mPackageManager;
+    private PackageManager mPackageManager;
 
     @VisibleForTesting
     protected AssistantSettings.Factory mSettingsFactory = AssistantSettings.FACTORY;
@@ -115,9 +110,9 @@ public class Assistant extends NotificationAssistantService {
         super.onCreate();
         // Contexts are correctly hooked up by the creation step, which is required for the observer
         // to be hooked up/initialized.
-        mPackageManager = ActivityThread.getPackageManager();
+        mPackageManager = getContext().getSystemService(PackageManager.class);
         mSettings = mSettingsFactory.createAndRegister(mHandler,
-                getApplicationContext().getContentResolver(), getUserId(), this::updateThresholds);
+                getApplicationContext().getContentResolver(), this::updateThresholds);
         mSmartActionsHelper = new SmartActionsHelper(getContext(), mSettings);
         mNotificationCategorizer = new NotificationCategorizer();
         mSmsHelper = new SmsHelper(this);
@@ -135,11 +130,9 @@ public class Assistant extends NotificationAssistantService {
     }
 
     private void loadFile() {
-        if (DEBUG) Slog.d(TAG, "loadFile");
+        if (DEBUG) Log.d(TAG, "loadFile");
         AsyncTask.execute(() -> {
-            InputStream infile = null;
-            try {
-                infile = mFile.openRead();
+            try (InputStream infile = mFile.openRead()) {
                 readXml(infile);
             } catch (FileNotFoundException e) {
                 Log.d(TAG, "File doesn't exist or isn't readable yet");
@@ -147,8 +140,6 @@ public class Assistant extends NotificationAssistantService {
                 Log.e(TAG, "Unable to read channel impressions", e);
             } catch (NumberFormatException | XmlPullParserException e) {
                 Log.e(TAG, "Unable to parse channel impressions", e);
-            } finally {
-                IoUtils.closeQuietly(infile);
             }
         });
     }
@@ -184,7 +175,7 @@ public class Assistant extends NotificationAssistantService {
             try {
                 stream = mFile.startWrite();
             } catch (IOException e) {
-                Slog.w(TAG, "Failed to save policy file", e);
+                Log.w(TAG, "Failed to save policy file", e);
                 return;
             }
             try {
@@ -193,7 +184,7 @@ public class Assistant extends NotificationAssistantService {
                 writeXml(out);
                 mFile.finishWrite(stream);
             } catch (IOException e) {
-                Slog.w(TAG, "Failed to save impressions file, restoring backup", e);
+                Log.w(TAG, "Failed to save impressions file, restoring backup", e);
                 mFile.failWrite(stream);
             }
         });
@@ -261,15 +252,13 @@ public class Assistant extends NotificationAssistantService {
         if (!smartReplies.isEmpty()) {
             signals.putCharSequenceArrayList(Adjustment.KEY_TEXT_REPLIES, smartReplies);
         }
-        if (mSettings.mNewInterruptionModel) {
-            if (mNotificationCategorizer.shouldSilence(entry)) {
-                final int importance = entry.getImportance() < IMPORTANCE_LOW
-                        ? entry.getImportance() : IMPORTANCE_LOW;
-                signals.putInt(KEY_IMPORTANCE, importance);
-            } else {
-                // Even if no change is made, send an identity adjustment for metric logging.
-                signals.putInt(KEY_IMPORTANCE, entry.getImportance());
-            }
+        if (mNotificationCategorizer.shouldSilence(entry)) {
+            final int importance = entry.getImportance() < IMPORTANCE_LOW
+                    ? entry.getImportance() : IMPORTANCE_LOW;
+            signals.putInt(KEY_IMPORTANCE, importance);
+        } else {
+            // Even if no change is made, send an identity adjustment for metric logging.
+            signals.putInt(KEY_IMPORTANCE, entry.getImportance());
         }
 
         return new Adjustment(
@@ -339,7 +328,7 @@ public class Assistant extends NotificationAssistantService {
                         ci.incrementDismissals();
                         updatedImpressions = true;
                     } else {
-                        if (DEBUG) Slog.i(TAG, "reset streak " + key);
+                        if (DEBUG) Log.i(TAG, "reset streak " + key);
                         if (ci.getStreak() > 0) {
                             updatedImpressions = true;
                         }
@@ -352,7 +341,7 @@ public class Assistant extends NotificationAssistantService {
                 saveFile();
             }
         } catch (Throwable e) {
-            Slog.e(TAG, "Error occurred processing removal of " + sbn, e);
+            Log.e(TAG, "Error occurred processing removal of " + sbn, e);
         }
     }
 
@@ -389,7 +378,7 @@ public class Assistant extends NotificationAssistantService {
 
     @Override
     public void onSuggestedReplySent(@NonNull String key, @NonNull CharSequence reply,
-            @Source int source) {
+            int source) {
         if (DEBUG) {
             Log.d(TAG, "onSuggestedReplySent() called with: key = [" + key + "], reply = [" + reply
                     + "], source = [" + source + "]");
@@ -400,7 +389,7 @@ public class Assistant extends NotificationAssistantService {
 
     @Override
     public void onActionInvoked(@NonNull String key, @NonNull Notification.Action action,
-            @Source int source) {
+            int source) {
         if (DEBUG) {
             Log.d(TAG,
                     "onActionInvoked() called with: key = [" + key + "], action = [" + action.title
@@ -414,10 +403,13 @@ public class Assistant extends NotificationAssistantService {
     public void onListenerConnected() {
         if (DEBUG) Log.i(TAG, "CONNECTED");
         try {
-            mFile = new AtomicFile(new File(new File(
-                    Environment.getDataUserCePackageDirectory(
-                            StorageManager.UUID_PRIVATE_INTERNAL, getUserId(), getPackageName()),
-                    "assistant"), "blocking_helper_stats.xml"));
+            Context ceContext = createCredentialProtectedStorageContext();
+            File assistantDir = new File(ceContext.getFilesDir(), "assistant");
+            if (!assistantDir.exists() && !assistantDir.mkdirs()) {
+                throw new IllegalStateException("Unable to create assistant directory");
+            }
+
+            mFile = new AtomicFile(new File(assistantDir, "blocking_helper_stats.xml"));
             loadFile();
             for (StatusBarNotification sbn : getActiveNotifications()) {
                 onNotificationPosted(sbn);
@@ -478,7 +470,7 @@ public class Assistant extends NotificationAssistantService {
     }
 
     @VisibleForTesting
-    public void setPackageManager(IPackageManager pm) {
+    public void setPackageManager(PackageManager pm) {
         mPackageManager = pm;
     }
 
