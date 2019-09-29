@@ -15,7 +15,6 @@
  */
 package android.ext.services.notification;
 
-import android.annotation.Nullable;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Person;
@@ -40,7 +39,7 @@ import android.view.textclassifier.TextClassificationManager;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextClassifierEvent;
 
-import com.android.internal.util.ArrayUtils;
+import androidx.annotation.Nullable;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -63,6 +62,7 @@ public class SmartActionsHelper {
     static final String KEY_ACTION_TYPE = "action_type";
     static final String KEY_ACTION_SCORE = "action_score";
     static final String KEY_TEXT = "text";
+    static final String NOTIFICATION_KEY = "notificationKey";
     // If a notification has any of these flags set, it's inelgibile for actions being added.
     private static final int FLAG_MASK_INELGIBILE_FOR_ACTIONS =
             Notification.FLAG_ONGOING_EVENT
@@ -70,6 +70,9 @@ public class SmartActionsHelper {
                     | Notification.FLAG_GROUP_SUMMARY
                     | Notification.FLAG_NO_CLEAR;
     private static final int MAX_RESULT_ID_TO_CACHE = 20;
+
+    // Copied from ConversationAction.java
+    private static final String TYPE_COPY = "copy";
 
     private static final List<String> HINTS =
             Collections.singletonList(ConversationActions.Request.HINT_FOR_NOTIFICATION);
@@ -155,7 +158,7 @@ public class SmartActionsHelper {
     @Nullable
     private Notification.Action createNotificationActionWithoutRemoteAction(
             ConversationAction conversationAction) {
-        if (ConversationAction.TYPE_COPY.equals(conversationAction.getType())) {
+        if (TYPE_COPY.equals(conversationAction.getType())) {
             return createCopyCodeAction(conversationAction);
         }
         return null;
@@ -179,9 +182,8 @@ public class SmartActionsHelper {
         Intent intent = new Intent(mContext, CopyCodeActivity.class);
         intent.putExtra(Intent.EXTRA_TEXT, code);
 
-        RemoteAction remoteAction = new RemoteAction(Icon.createWithResource(
-                mContext.getResources(),
-                com.android.internal.R.drawable.ic_menu_copy_material),
+        RemoteAction remoteAction = new RemoteAction(
+                Icon.createWithResource(mContext, R.drawable.ic_menu_copy_material),
                 code,
                 contentDescription,
                 PendingIntent.getActivity(
@@ -193,7 +195,7 @@ public class SmartActionsHelper {
 
         return createNotificationActionFromRemoteAction(
                 remoteAction,
-                ConversationAction.TYPE_COPY,
+                TYPE_COPY,
                 conversationAction.getConfidenceScore());
     }
 
@@ -219,7 +221,8 @@ public class SmartActionsHelper {
         if (freeformRemoteInputAndAction != null) {
             RemoteInput freeformRemoteInput = freeformRemoteInputAndAction.first;
             Notification.Action actionWithFreeformRemoteInput = freeformRemoteInputAndAction.second;
-            hasAppGeneratedReplies = !ArrayUtils.isEmpty(freeformRemoteInput.getChoices());
+            CharSequence[] choices = freeformRemoteInput.getChoices();
+            hasAppGeneratedReplies = (choices != null && choices.length > 0);
             allowGeneratedReplies = actionWithFreeformRemoteInput.getAllowGeneratedReplies();
         }
 
@@ -277,12 +280,18 @@ public class SmartActionsHelper {
                             Collections.singletonList(ConversationAction.TYPE_TEXT_REPLY))
                     .includeTypesFromTextClassifier(false);
         }
+
+        // Put the notification key into the request extras
+        Bundle extra = new Bundle();
+        extra.putString(NOTIFICATION_KEY, entry.getSbn().getKey());
         ConversationActions.Request request =
                 new ConversationActions.Request.Builder(messages)
                         .setMaxSuggestions(mSettings.mMaxSuggestions)
                         .setHints(HINTS)
+                        .setExtras(extra)
                         .setTypeConfig(typeConfigBuilder.build())
                         .build();
+
         ConversationActions conversationActions =
                 getTextClassifier().suggestConversationActions(request);
         reportActionsGenerated(
@@ -324,7 +333,7 @@ public class SmartActionsHelper {
     }
 
     void onSuggestedReplySent(String key, CharSequence reply,
-            @NotificationAssistantService.Source int source) {
+            int source) {
         if (source != NotificationAssistantService.SOURCE_FROM_ASSISTANT) {
             return;
         }
@@ -342,7 +351,7 @@ public class SmartActionsHelper {
     }
 
     void onActionClicked(String key, Notification.Action action,
-            @NotificationAssistantService.Source int source) {
+            int source) {
         if (source != NotificationAssistantService.SOURCE_FROM_ASSISTANT) {
             return;
         }
@@ -366,7 +375,7 @@ public class SmartActionsHelper {
             RemoteAction remoteAction, String actionType, float score) {
         Icon icon = remoteAction.shouldShowIcon()
                 ? remoteAction.getIcon()
-                : Icon.createWithResource(mContext, com.android.internal.R.drawable.ic_action_open);
+                : Icon.createWithResource(mContext, R.drawable.ic_action_open);
         Bundle extras = new Bundle();
         extras.putString(KEY_ACTION_TYPE, actionType);
         extras.putFloat(KEY_ACTION_SCORE, score);

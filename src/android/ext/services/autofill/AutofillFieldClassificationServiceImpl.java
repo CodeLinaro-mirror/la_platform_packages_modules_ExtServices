@@ -15,14 +15,13 @@
  */
 package android.ext.services.autofill;
 
-import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.os.Bundle;
 import android.service.autofill.AutofillFieldClassificationService;
 import android.util.Log;
 import android.view.autofill.AutofillValue;
 
-import com.android.internal.util.ArrayUtils;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,11 +36,12 @@ public class AutofillFieldClassificationServiceImpl extends AutofillFieldClassif
     @Nullable
     @Override
     /** @hide */
-    public float[][] onCalculateScores(@NonNull List<AutofillValue> actualValues,
-            @NonNull List<String> userDataValues, @NonNull List<String> categoryIds,
+    public float[][] onCalculateScores(@Nullable List<AutofillValue> actualValues,
+            @Nullable List<String> userDataValues, @NonNull List<String> categoryIds,
             @Nullable String defaultAlgorithm, @Nullable Bundle defaultArgs,
             @Nullable Map algorithms, @Nullable Map args) {
-        if (ArrayUtils.isEmpty(actualValues) || ArrayUtils.isEmpty(userDataValues)) {
+        if (actualValues == null || userDataValues == null ||
+            actualValues.isEmpty() || userDataValues.isEmpty()) {
             Log.w(TAG, "calculateScores(): empty currentvalues (" + actualValues
                     + ") or userValues (" + userDataValues + ")");
             return null;
