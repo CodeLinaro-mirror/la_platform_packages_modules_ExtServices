@@ -15,8 +15,9 @@
  */
 package android.ext.services.autofill;
 
-import static androidx.autofill.InlinePresentationRenderer.renderSlice;
-
+import android.app.PendingIntent;
+import android.content.IntentSender;
+import android.os.Bundle;
 import android.service.autofill.InlinePresentation;
 import android.service.autofill.InlineSuggestionRenderService;
 import android.util.Log;
@@ -24,6 +25,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.autofill.inline.Renderer;
 import androidx.core.util.Preconditions;
 
 public class InlineSuggestionRenderServiceImpl extends InlineSuggestionRenderService {
@@ -38,8 +40,22 @@ public class InlineSuggestionRenderServiceImpl extends InlineSuggestionRenderSer
     public View onRenderSuggestion(@NonNull InlinePresentation presentation,
             int width, int height) {
         Preconditions.checkNotNull(presentation, TAG + ": InlinePresentation should not be null");
-
         Log.v(TAG, "onRenderSuggestion: width=" + width + ", height=" + height);
-        return renderSlice(this, presentation.getSlice(), /* style */ null);
+
+        final Bundle style = presentation.getInlinePresentationSpec().getStyle();
+        View suggestionView = null;
+        PendingIntent attributionIntent = null;
+        if(style != null && !style.isEmpty()) {
+            suggestionView = Renderer.render(this, presentation.getSlice(), style);
+            attributionIntent = Renderer.getAttributionIntent(presentation.getSlice());
+        }
+        if (suggestionView != null && attributionIntent != null) {
+            final IntentSender attributionIntentSender = attributionIntent.getIntentSender();
+            suggestionView.setOnLongClickListener((v) -> {
+                startIntentSender(attributionIntentSender);
+                return true;
+            });
+        }
+        return suggestionView;
     }
 }
