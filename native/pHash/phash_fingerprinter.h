@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright 2021 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,24 @@
  * limitations under the License.
  */
 
-package android.ext.services.screenshot;
+#pragma once
 
-import android.hardware.HardwareBuffer;
+#include <memory>
 
-class ImageHashManager {
-    static {
-        System.loadLibrary("extservices_jni");
-    }
+#include "phash_config.h"
 
-    private static native byte[] nativeGenerateHash(HardwareBuffer hardwareBuffer,
-            String hashAlgorithm);
-}
+namespace android {
+
+// Class that generates a perceptual hash of an ImageFrame.
+// Not thread-safe.
+class PhashFingerprinter {
+public:
+    // Produce the fingerprint of an image frame, which must be 32 by 32
+    // grayscale of 1 byte per pixel.
+    int64_t GenerateFingerprint(const uint8_t* frame);
+
+private:
+    // Buffers to avoid memory allocation:
+    int16_t dct_buf_[kImageSize];
+};
+} // namespace android
