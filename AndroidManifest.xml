@@ -31,12 +31,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
-    <!-- TODO: Uncomment this when the R API level is fixed. b/148281152 -->
-    <!--uses-sdk
-        android:minSdkVersion="29"
-        android:targetSdkVersion="29"
+    <uses-sdk
+        android:targetSdkVersion="30"
     />
-    -->
 
     <application android:label="@string/app_name"
         android:defaultToDeviceProtectedStorage="true"
@@ -112,15 +109,15 @@
             </intent-filter>
         </service>
 
-        <service android:name=".attestation.ImpressionAttestationServiceImpl"
+        <service android:name=".screenshot.ScreenshotHasherServiceImpl"
             android:exported="true"
-            android:permission="android.permission.BIND_IMPRESSION_ATTESTATION_SERVICE">
+            android:permission="android.permission.BIND_SCREENSHOT_HASHER_SERVICE">
             <intent-filter>
-                <action android:name="android.service.attestation.ImpressionAttestationService" />
+                <action android:name="android.service.screenshot.ScreenshotHasherService" />
             </intent-filter>
             <meta-data
-                android:name="android.attestation.available_algorithms"
-                android:resource="@array/attestation_available_algorithms" />
+                android:name="android.screenshot.available_algorithms"
+                android:resource="@array/screenshot_available_algorithms" />
         </service>
 
     </application>
