@@ -19,5 +19,10 @@
     {
       "path": "external/libtextclassifier"
     }
+  ],
+  "mainline-presubmit": [
+    {
+      "name": "ExtServicesUnitTests[com.google.android.extservices.apex]"
+    }
   ]
 }
