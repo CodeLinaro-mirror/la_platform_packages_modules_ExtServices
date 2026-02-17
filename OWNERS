@@ -1,6 +1,5 @@
 # Bug component: 1101073
 bhagavatular@google.com
-sawkar@google.com
 # Autofill
 include platform/frameworks/base:/core/java/android/service/autofill/OWNERS
 # PackageWatchdog
@@ -12,6 +11,5 @@ juliacr@google.com
 tonymak@google.com
 # SMSRetriever
 kiranmr@google.com
-ntmyren@google.com
 
 include platform/packages/modules/common:/MODULES_OWNERS  # see go/mainline-owners-policy
